@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const adapter = vi.hoisted(() => ({
-  hasGatewayCredentials: vi.fn(),
   streamMutationElements: vi.fn(),
 }));
 
@@ -18,12 +17,20 @@ const validBody = {
   edges: [],
 };
 
-function request(body: unknown): Request {
+function request(
+  body: unknown,
+  credentials: Record<string, string> = {
+    "x-graphwake-provider": "openai",
+    "x-graphwake-model": "gpt-5.1",
+    "x-graphwake-key": "sk-test-key",
+  },
+): Request {
   return new Request("http://localhost/api/generate", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Origin: "http://localhost",
+      ...credentials,
     },
     body: JSON.stringify(body),
   });
@@ -31,22 +38,18 @@ function request(body: unknown): Request {
 
 describe("POST /api/generate", () => {
   beforeEach(() => {
-    adapter.hasGatewayCredentials.mockReset();
     adapter.streamMutationElements.mockReset();
   });
 
-  it("returns 503 without Gateway authentication", async () => {
-    adapter.hasGatewayCredentials.mockReturnValue(false);
+  it("returns 400 without provider credentials", async () => {
+    const response = await POST(request(validBody, {}));
 
-    const response = await POST(request(validBody));
-
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: "GATEWAY_UNAVAILABLE" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "PROVIDER_REQUIRED" });
+    expect(adapter.streamMutationElements).not.toHaveBeenCalled();
   });
 
   it("rejects oversized input before model work", async () => {
-    adapter.hasGatewayCredentials.mockReturnValue(true);
-
     const response = await POST(
       request({ ...validBody, prompt: "x".repeat(1_201) }),
     );
@@ -56,7 +59,6 @@ describe("POST /api/generate", () => {
   });
 
   it("rejects a cross-origin caller before model work", async () => {
-    adapter.hasGatewayCredentials.mockReturnValue(true);
     const incoming = request(validBody);
     incoming.headers.set("Origin", "https://attacker.example");
 
@@ -67,7 +69,6 @@ describe("POST /api/generate", () => {
   });
 
   it("streams one validated proposal per NDJSON line", async () => {
-    adapter.hasGatewayCredentials.mockReturnValue(true);
     adapter.streamMutationElements.mockReturnValue(
       (async function* () {
         yield {
@@ -94,12 +95,12 @@ describe("POST /api/generate", () => {
     expect(JSON.parse(lines[0]).type).toBe("add-node");
     expect(adapter.streamMutationElements).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: "project-1" }),
+      expect.objectContaining({ provider: "openai", model: "gpt-5.1", apiKey: "sk-test-key" }),
       incoming.signal,
     );
   });
 
   it("caps a model stream at the batch proposal limit", async () => {
-    adapter.hasGatewayCredentials.mockReturnValue(true);
     adapter.streamMutationElements.mockReturnValue(
       (async function* () {
         for (let index = 0; index < 12; index += 1) {

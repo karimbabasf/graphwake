@@ -59,7 +59,7 @@ export type NodeKind = (typeof NODE_KINDS)[number];
 export type EpistemicStatus = (typeof EPISTEMIC_STATUSES)[number];
 export type RelationKind = (typeof RELATION_KINDS)[number];
 export type EventType = (typeof EVENT_TYPES)[number];
-export type EngineKind = "local" | "gateway";
+export type EngineKind = "local" | "model";
 
 export interface EvidenceRef {
   id: string;

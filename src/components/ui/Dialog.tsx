@@ -27,6 +27,13 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose without making the open effect re-run on every
+  // parent render. Otherwise a controlled field inside the dialog would lose
+  // focus on each keystroke as the effect re-fires and re-autofocuses.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -35,7 +42,7 @@ export function Dialog({
     panel?.querySelector<HTMLElement>("input, textarea, select, button")?.focus();
 
     function keydown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
       if (event.key !== "Tab" || !panel) return;
       const controls = [...panel.querySelectorAll<HTMLElement>(
         'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -59,7 +66,7 @@ export function Dialog({
       document.body.classList.remove("dialog-open");
       previous?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   function closeFromBackdrop(event: MouseEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) onClose();

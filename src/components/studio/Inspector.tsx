@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, FileSearch, Network, Sigma as SigmaIcon } from "lucide-react";
+import { Box, Network, Sigma as SigmaIcon } from "lucide-react";
 import {
   useId,
   useMemo,
@@ -18,11 +18,10 @@ import type {
 import { degreeCentrality } from "@/lib/insights/graphMetrics";
 import { cosineSimilarity } from "@/lib/insights/vectors";
 
-type InspectorTab = "object" | "evidence" | "vector" | "insight";
+type InspectorTab = "object" | "vector" | "insight";
 
 const INSPECTOR_TABS = [
   ["object", Box, "Object"],
-  ["evidence", FileSearch, "Evidence"],
   ["vector", SigmaIcon, "Vector"],
   ["insight", Network, "Insight"],
 ] as const;
@@ -49,7 +48,6 @@ export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorPro
   const [tab, setTab] = useState<InspectorTab>("object");
   const [embedding, setEmbedding] = useState(false);
   const tabGroupId = useId();
-  const evidence = node?.evidence ?? edge?.evidence ?? event?.evidence ?? [];
   const insight = useMemo(
     () => (node ? degreeCentrality(snapshot, node.id) : null),
     [node, snapshot],
@@ -168,26 +166,6 @@ export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorPro
                 <p>This trace explains the application transition. It is not hidden model reasoning.</p>
               </div>
             ) : null}
-          </div>
-        ) : null}
-
-        {tab === "evidence" ? (
-          <div className="evidence-list">
-            {evidence.length === 0 ? (
-              <div className="empty-inspector">
-                <span>NO ATTACHED EVIDENCE</span>
-                <p>This object is stored as an assertion or inference without a source reference. Its confidence does not make it true.</p>
-              </div>
-            ) : (
-              evidence.map((item) => (
-                <article key={item.id}>
-                  <span>{item.label}</span>
-                  {item.excerpt ? <blockquote>{item.excerpt}</blockquote> : null}
-                  {item.uri ? <a href={item.uri} target="_blank" rel="noreferrer">Open source</a> : null}
-                  {item.contentHash ? <code>{item.contentHash}</code> : null}
-                </article>
-              ))
-            )}
           </div>
         ) : null}
 

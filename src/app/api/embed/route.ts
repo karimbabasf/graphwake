@@ -1,9 +1,6 @@
-import {
-  embedNodeTexts,
-  hasGatewayCredentials,
-  publicAiError,
-} from "@/lib/ai/adapter";
+import { embedNodeTexts, publicAiError } from "@/lib/ai/adapter";
 import { embeddingRequestSchema } from "@/lib/domain/schemas";
+import { readAiCredentials } from "@/lib/http/aiCredentials";
 import {
   AiRequestBodyError,
   authorizeAiRequest,
@@ -49,11 +46,12 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  if (!hasGatewayCredentials()) {
+  const credentials = readAiCredentials(request);
+  if ("rejection" in credentials) {
     return jsonError(
-      503,
-      "GATEWAY_UNAVAILABLE",
-      "Configure Vercel AI Gateway to create model embeddings.",
+      credentials.rejection.status,
+      credentials.rejection.code,
+      credentials.rejection.message,
     );
   }
 
@@ -76,7 +74,11 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const result = await embedNodeTexts(parsed.data.values, request.signal);
+    const result = await embedNodeTexts(
+      parsed.data.values,
+      credentials.credentials,
+      request.signal,
+    );
     return Response.json(result, {
       headers: { "Cache-Control": "no-store" },
     });

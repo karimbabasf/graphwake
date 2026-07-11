@@ -12,7 +12,7 @@ import {
   generateLocalProposals,
   type LocalEngineInput,
 } from "@/lib/runtime/localEngine";
-import { requestMutationBatch } from "@/lib/runtime/gatewayClient";
+import { requestMutationBatch } from "@/lib/runtime/modelClient";
 import { RUN_LIMITS } from "@/lib/runtime/limits";
 
 type ProposalSource = AsyncIterable<MutationProposal>;
@@ -23,7 +23,7 @@ export interface RunControllerDependencies {
   createId?: () => string;
   vectorize?: (text: string, occurredAt: string) => VectorRecord;
   localSource?: (input: LocalEngineInput) => ProposalSource;
-  gatewaySource?: (
+  modelSource?: (
     request: GenerationRequest,
     signal: AbortSignal,
   ) => ProposalSource;
@@ -49,7 +49,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
     ((text: string, occurredAt: string) =>
       featureHashVector(text, 48, occurredAt));
   const localSource = dependencies.localSource ?? generateLocalProposals;
-  const gatewaySource = dependencies.gatewaySource ?? requestMutationBatch;
+  const modelSource = dependencies.modelSource ?? requestMutationBatch;
   let currentStatus: ProjectStatus | "idle" = "idle";
   let controller: AbortController | null = null;
   let active = false;
@@ -75,7 +75,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
     return event;
   }
 
-  async function* gatewayRun(
+  async function* modelRun(
     projectId: string,
     signal: AbortSignal,
   ): AsyncGenerator<MutationProposal> {
@@ -105,7 +105,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
         })),
       };
 
-      for await (const proposal of gatewaySource(request, signal)) {
+      for await (const proposal of modelSource(request, signal)) {
         yield proposal;
       }
       batch += 1;
@@ -162,7 +162,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
             existingEdges: loaded.snapshot.edges,
             signal: controller.signal,
           })
-        : gatewayRun(projectId, controller.signal);
+        : modelRun(projectId, controller.signal);
 
     try {
       for await (const proposal of source) {

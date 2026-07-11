@@ -1,9 +1,6 @@
-import {
-  hasGatewayCredentials,
-  publicAiError,
-  streamMutationElements,
-} from "@/lib/ai/adapter";
+import { publicAiError, streamMutationElements } from "@/lib/ai/adapter";
 import { generationRequestSchema } from "@/lib/domain/schemas";
+import { readAiCredentials } from "@/lib/http/aiCredentials";
 import {
   AiRequestBodyError,
   authorizeAiRequest,
@@ -52,11 +49,12 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  if (!hasGatewayCredentials()) {
+  const credentials = readAiCredentials(request);
+  if ("rejection" in credentials) {
     return jsonError(
-      503,
-      "GATEWAY_UNAVAILABLE",
-      "Configure Vercel AI Gateway to use the model engine. The local engine remains available.",
+      credentials.rejection.status,
+      credentials.rejection.code,
+      credentials.rejection.message,
     );
   }
 
@@ -81,7 +79,11 @@ export async function POST(request: Request): Promise<Response> {
 
   let elements;
   try {
-    elements = streamMutationElements(parsed.data, request.signal);
+    elements = streamMutationElements(
+      parsed.data,
+      credentials.credentials,
+      request.signal,
+    );
   } catch (error) {
     const failure = publicAiError(error);
     return jsonError(failure.status, failure.code, failure.message);

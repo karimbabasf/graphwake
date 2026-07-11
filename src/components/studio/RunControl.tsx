@@ -32,7 +32,7 @@ export function RunControl({
       <div className="run-state">
         <i className={running ? "run-live" : ""} aria-hidden="true" />
         <span>{running ? "RUNNING" : status.toUpperCase()}</span>
-        <small>{engine === "local" ? "LOCAL STUDY" : "AI GATEWAY"}</small>
+        <small>{engine === "local" ? "LOCAL STUDY" : "AI MODEL"}</small>
       </div>
       <div className="budget-meter" aria-label={`${nodeCount} of ${RUN_LIMITS.nodeBudget} nodes`}>
         <span>OBJECT BUDGET</span>

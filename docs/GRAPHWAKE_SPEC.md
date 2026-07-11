@@ -270,9 +270,9 @@ The timeline uses the replayed snapshot, never a separately mutated copy. A sele
 
 `feature-hash-v1` tokenizes the node label and summary, hashes tokens and adjacent token pairs into 48 signed dimensions, applies term-frequency weights, and L2-normalizes the result. This is a deterministic lexical projection, not a neural embedding.
 
-### 7.2 Gateway embeddings
+### 7.2 Provider embeddings
 
-When Gateway authentication exists, `POST /api/embed` calls AI SDK `embedMany` with `openai/text-embedding-3-small` or `GRAPHWAKE_EMBEDDING_MODEL`. The returned vector and exact model ID are committed through `node.updated` events. The local vector remains available for comparison.
+When a request carries a provider key, `POST /api/embed` calls AI SDK `embedMany` with that provider's default embedding model (`text-embedding-3-small` for OpenAI, `Qwen/Qwen3-Embedding-0.6B` for NEAR AI Cloud). Anthropic has no embeddings, so the local vector projection stays in use. The returned vector and exact model ID are committed through `node.updated` events. The local vector remains available for comparison.
 
 ### 7.3 Computed insights
 
@@ -301,9 +301,9 @@ stopped | interrupted | failed -> running on resume
 
 The deterministic engine derives seed concepts from the prompt, then adds typed questions, assertions, evidence requests, and explicit relations. It never fabricates source URLs. It yields one validated proposal every 280 ms and stops at the 120-node safety budget if the user has not stopped it.
 
-### 8.3 Gateway engine
+### 8.3 Model engine
 
-`POST /api/generate` accepts a bounded project summary and one batch request. It uses `streamText` with `Output.array` and the verified default model `xai/grok-4.5`, overridable through `GRAPHWAKE_MODEL`. Each fully validated element is returned as NDJSON.
+`POST /api/generate` accepts a bounded project summary and one batch request. The provider, model, and the user's own key arrive as request headers; the route builds the matching AI SDK provider (OpenAI, Anthropic, or NEAR AI Cloud) and uses `streamText` with `Output.array`. Each fully validated element is returned as NDJSON.
 
 The client:
 

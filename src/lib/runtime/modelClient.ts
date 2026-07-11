@@ -3,25 +3,25 @@ import type {
   GenerationRequest,
   MutationProposal,
 } from "@/lib/domain/types";
-import { gatewayRequestHeaders } from "@/lib/runtime/gatewayAccess";
+import { aiRequestHeaders } from "@/lib/runtime/aiAccess";
 
-export class GatewayStreamError extends Error {
+export class ModelStreamError extends Error {
   readonly code: string;
 
   constructor(code: string, message: string) {
     super(message);
-    this.name = "GatewayStreamError";
+    this.name = "ModelStreamError";
     this.code = code;
   }
 }
 
-export class GatewayRequestError extends Error {
+export class ModelRequestError extends Error {
   readonly code: string;
   readonly status: number;
 
   constructor(status: number, code: string, message: string) {
     super(message);
-    this.name = "GatewayRequestError";
+    this.name = "ModelRequestError";
     this.status = status;
     this.code = code;
   }
@@ -32,7 +32,7 @@ function parseLine(line: string): MutationProposal {
   try {
     value = JSON.parse(line);
   } catch {
-    throw new GatewayStreamError("INVALID_JSON", "The model stream returned invalid JSON.");
+    throw new ModelStreamError("INVALID_JSON", "The model stream returned invalid JSON.");
   }
 
   if (value !== null && typeof value === "object") {
@@ -42,13 +42,13 @@ function parseLine(line: string): MutationProposal {
       typeof record.code === "string" &&
       typeof record.message === "string"
     ) {
-      throw new GatewayStreamError(record.code, record.message);
+      throw new ModelStreamError(record.code, record.message);
     }
   }
 
   const parsed = mutationProposalSchema.safeParse(value);
   if (!parsed.success) {
-    throw new GatewayStreamError(
+    throw new ModelStreamError(
       "INVALID_PROPOSAL",
       parsed.error.issues[0]?.message ?? "The model returned an invalid proposal.",
     );
@@ -101,7 +101,7 @@ export async function* requestMutationBatch(
 ): AsyncGenerator<MutationProposal> {
   const response = await fetcher("/api/generate", {
     method: "POST",
-    headers: gatewayRequestHeaders(),
+    headers: aiRequestHeaders(),
     body: JSON.stringify(request),
     cache: "no-store",
     signal,
@@ -112,17 +112,17 @@ export async function* requestMutationBatch(
       code?: string;
       message?: string;
     } | null;
-    throw new GatewayRequestError(
+    throw new ModelRequestError(
       response.status,
-      body?.code ?? "GATEWAY_REQUEST_FAILED",
-      body?.message ?? `Gateway request failed with status ${response.status}.`,
+      body?.code ?? "MODEL_REQUEST_FAILED",
+      body?.message ?? `Model request failed with status ${response.status}.`,
     );
   }
   if (!response.body) {
-    throw new GatewayRequestError(
+    throw new ModelRequestError(
       502,
       "EMPTY_STREAM",
-      "The Gateway response did not include a stream.",
+      "The model response did not include a stream.",
     );
   }
 

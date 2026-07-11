@@ -16,8 +16,8 @@ import {
 
 import { AccessibleGraph } from "@/components/graph/AccessibleGraph";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
+import { AiAccess } from "@/components/studio/AiAccess";
 import { EventRail } from "@/components/studio/EventRail";
-import { GatewayAccess } from "@/components/studio/GatewayAccess";
 import { Inspector } from "@/components/studio/Inspector";
 import { Legend } from "@/components/studio/Legend";
 import {
@@ -38,8 +38,8 @@ import type {
   LoadedProject,
   ProjectRepository,
 } from "@/lib/persistence/projects";
+import { aiRequestHeaders } from "@/lib/runtime/aiAccess";
 import { createRunController } from "@/lib/runtime/controller";
-import { gatewayRequestHeaders } from "@/lib/runtime/gatewayAccess";
 import { runWithProjectLock } from "@/lib/runtime/runLock";
 
 interface StudioShellProps {
@@ -276,7 +276,7 @@ export function StudioShell({
     setRuntimeError(null);
     const response = await fetch("/api/embed", {
       method: "POST",
-      headers: gatewayRequestHeaders(),
+      headers: aiRequestHeaders(),
       body: JSON.stringify({ values: [`${node.label} ${node.summary}`] }),
     });
     const body: unknown = await response.json();
@@ -419,7 +419,7 @@ export function StudioShell({
             <p>{loaded.project.seedPrompt}</p>
           </div>
           <div className="field-actions">
-            <GatewayAccess />
+            <AiAccess />
             <ManualMutation
               mode={manualMode}
               snapshot={snapshot}

@@ -136,6 +136,7 @@ a {
 
 .wordmark-mark i {
   position: absolute;
+  z-index: 1;
   display: block;
   width: 6px;
   height: 6px;
@@ -164,23 +165,26 @@ a {
 .wordmark-mark::after {
   position: absolute;
   z-index: 0;
-  width: 14px;
   height: 1px;
   background: currentColor;
   content: "";
   transform-origin: left center;
 }
 
+/* Connect dot 1 (4,4) to dot 2 (12,15): length hypot(8,11), angle atan2(11,8). */
 .wordmark-mark::before {
-  top: 7px;
-  left: 5px;
-  transform: rotate(31deg);
+  top: 3.5px;
+  left: 4px;
+  width: 13.6px;
+  transform: rotate(54deg);
 }
 
+/* Connect dot 2 (12,15) to dot 3 (21,5): length hypot(9,10), angle atan2(-10,9). */
 .wordmark-mark::after {
-  top: 14px;
-  left: 13px;
-  transform: rotate(-47deg);
+  top: 14.5px;
+  left: 12px;
+  width: 13.5px;
+  transform: rotate(-48deg);
 }
 
 .action-button {
@@ -735,6 +739,75 @@ a {
   font-size: 0.82rem;
 }
 
+.prompt-guide {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--signal);
+  background: var(--paper-deep);
+}
+
+.prompt-guide p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.prompt-guide-lead {
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+
+.prompt-guide-examples {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.1rem 0 0;
+}
+
+.prompt-guide-examples > div {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.prompt-guide-examples dt {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.prompt-guide-examples dd {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.prompt-guide-examples .is-weak {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--refute);
+}
+
+.prompt-guide-examples .is-strong {
+  color: var(--ink);
+}
+
+.field-hint {
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+
 /* Studio frame */
 
 .studio-shell {
@@ -985,7 +1058,7 @@ a {
   gap: 0.3rem;
 }
 
-.gateway-access-button {
+.ai-access-button {
   display: inline-flex;
   min-height: 34px;
   align-items: center;
@@ -997,6 +1070,26 @@ a {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   background: var(--paper-wash);
+}
+
+.ai-config-fields {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.9rem;
+  border: 1px solid var(--rule);
+  background: var(--paper-wash);
+}
+
+.ai-config-advanced > summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+}
+
+.ai-config-advanced[open] > summary {
+  margin-bottom: 0.7rem;
 }
 
 .field-heading p {
@@ -1325,6 +1418,7 @@ a {
 }
 
 .node-key,
+.fill-key,
 .relation-key {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1335,6 +1429,7 @@ a {
 }
 
 .node-key li,
+.fill-key li,
 .relation-key li {
   display: flex;
   align-items: center;
@@ -1342,21 +1437,42 @@ a {
   text-transform: lowercase;
 }
 
+/* Legend swatches are neutral silhouettes: shape carries the object kind, and
+   the FILL / CERTAINTY section carries the epistemic color. */
 .shape {
   display: inline-block;
   width: 9px;
   height: 9px;
   flex: 0 0 auto;
   border: 1px solid var(--ink);
-  background: var(--evidence);
+  background: var(--ink-muted);
 }
 
 .shape-observation { border-radius: 50%; }
 .shape-assertion { transform: rotate(45deg); }
 .shape-concept { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
-.shape-question { clip-path: polygon(50% 0, 100% 100%, 0 100%); background: var(--question); }
+.shape-question { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .shape-decision { width: 14px; border-radius: 6px; }
-.shape-state { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--paper); background: var(--signal); }
+.shape-state { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--paper); }
+
+.fill-key i {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+}
+
+.key-note {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .relation-key i {
   width: 28px;
@@ -1953,7 +2069,7 @@ a {
 
   .run-control .action-button,
   .mutation-tools button,
-  .gateway-access-button,
+  .ai-access-button,
   .graph-tools button,
   .legend-minimized,
   .event-rail header button,

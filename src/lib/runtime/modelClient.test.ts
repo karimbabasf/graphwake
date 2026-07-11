@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  GatewayStreamError,
-  parseNdjson,
-} from "@/lib/runtime/gatewayClient";
+import { ModelStreamError, parseNdjson } from "@/lib/runtime/modelClient";
 
 const encoder = new TextEncoder();
 
@@ -64,7 +61,7 @@ describe("parseNdjson", () => {
     ]);
 
     await expect(collect(stream)).rejects.toEqual(
-      new GatewayStreamError("MODEL_FAILED", "The provider stopped the batch."),
+      new ModelStreamError("MODEL_FAILED", "The provider stopped the batch."),
     );
   });
 });

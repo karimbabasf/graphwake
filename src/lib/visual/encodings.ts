@@ -107,3 +107,7 @@ export function wakeColor(type: EventType): string {
 export function relationVisual(relation: RelationKind) {
   return RELATION_VISUALS[relation];
 }
+
+export function epistemicColor(status: EpistemicStatus): string {
+  return EPISTEMIC_COLORS[status];
+}

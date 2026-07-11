@@ -7,7 +7,7 @@
 Graphwake is a local-first studio for building typed context, memory, and evidence graphs from one prompt. It records every accepted graph mutation in an append-only event ledger, reconstructs any prior state by replay, and exposes the method, inputs, formula, and caveat behind each computed insight.
 
 - Run a deterministic local graph generator without an account or API key.
-- Stream model-proposed mutations through Vercel AI Gateway when configured.
+- Stream model-proposed mutations using your own OpenAI, Anthropic (Claude), or NEAR AI Cloud key, with the model chosen in the UI.
 - Inspect objects, evidence, vectors, relation rationale, event hashes, and state hashes.
 - Save projects in IndexedDB, replay their history, export verified JSON, and delete every local record.
 
@@ -26,24 +26,23 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). The local runner, manual editor, replay, insights, export, and persistence work with no environment variables.
 
-## Optional AI Gateway
+## Optional AI models (bring your own key)
 
-Copy the environment example and add your own Gateway key:
+The AI runner uses your own provider key. Nothing is configured in the server environment; you enter a key in the UI, and it stays in the browser session (never in a project or export).
+
+Pick a provider when you create a project (or from the studio's "AI model" dialog):
+
+- **OpenAI** (`api.openai.com`): GPT and o-series models.
+- **Claude (Anthropic)** (`api.anthropic.com`): Claude models. No embeddings, so the vector layer stays on the local projection.
+- **NEAR AI Cloud** (`cloud-api.near.ai`): one key, a large private catalog (Claude, GPT, Gemini, Qwen, and more) plus embeddings.
+
+The model list is fetched live from the provider with your key, so you choose from exactly what that key can reach. The key travels only to the same-origin API route, which forwards it to the provider for one request; it is never stored server-side. The application validates every proposal before writing it to IndexedDB.
+
+For a public deployment, set `GRAPHWAKE_API_TOKEN` (at least 24 characters) to gate the AI routes, then enter that token in the studio's "AI model" dialog. Graphwake also checks request origin, bounds request bytes and model output, and applies a per-instance request limit. A distributed deployment still needs a platform-level quota.
 
 ```bash
 cp .env.example .env.local
 ```
-
-```env
-AI_GATEWAY_API_KEY=your_key_here
-GRAPHWAKE_API_TOKEN=a_random_value_with_at_least_24_characters
-GRAPHWAKE_MODEL=xai/grok-4.5
-GRAPHWAKE_EMBEDDING_MODEL=openai/text-embedding-3-small
-```
-
-Create a project with the AI Gateway runner to use model-proposed graph batches. Enter `GRAPHWAKE_API_TOKEN` in the project form or the studio's Gateway access dialog. It stays in session storage and never enters the project ledger. The application validates proposals before writing them to IndexedDB. The Gateway key stays in the server environment.
-
-For a public deployment, configure a Gateway spend limit and platform rate limit. Graphwake checks request origin, bounds request bytes and model output, and applies a per-instance request limit. A distributed deployment still needs a platform-level quota.
 
 ## Test
 

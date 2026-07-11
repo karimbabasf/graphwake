@@ -1,17 +1,22 @@
 import {
-  configuredEmbeddingModel,
-  configuredMutationModel,
-  hasGatewayCredentials,
-} from "@/lib/ai/adapter";
+  AI_PROVIDER_IDS,
+  AI_PROVIDERS,
+  DEFAULT_EMBEDDING_MODELS,
+  DEFAULT_MODELS,
+  FALLBACK_MODELS,
+} from "@/lib/ai/catalog";
 import { RUN_LIMITS } from "@/lib/runtime/limits";
 
 export function GET(): Response {
   return Response.json(
     {
-      gatewayConfigured: hasGatewayCredentials(),
       accessTokenRequired: Boolean(process.env.GRAPHWAKE_API_TOKEN),
-      mutationModel: configuredMutationModel(),
-      embeddingModel: configuredEmbeddingModel(),
+      providers: AI_PROVIDER_IDS.map((id) => ({
+        ...AI_PROVIDERS[id],
+        defaultModel: DEFAULT_MODELS[id],
+        embeddingModel: DEFAULT_EMBEDDING_MODELS[id],
+        models: FALLBACK_MODELS[id],
+      })),
       limits: RUN_LIMITS,
     },
     { headers: { "Cache-Control": "no-store" } },

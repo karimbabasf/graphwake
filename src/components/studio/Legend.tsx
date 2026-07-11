@@ -3,8 +3,12 @@
 import { ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 
-import { NODE_KINDS, RELATION_KINDS } from "@/lib/domain/types";
-import { relationVisual } from "@/lib/visual/encodings";
+import {
+  EPISTEMIC_STATUSES,
+  NODE_KINDS,
+  RELATION_KINDS,
+} from "@/lib/domain/types";
+import { epistemicColor, relationVisual } from "@/lib/visual/encodings";
 
 export function Legend() {
   const [open, setOpen] = useState(false);
@@ -36,6 +40,20 @@ export function Legend() {
             </li>
           ))}
         </ul>
+      </div>
+      <div className="key-section">
+        <b>FILL / CERTAINTY</b>
+        <ul className="fill-key">
+          {EPISTEMIC_STATUSES.map((status) => (
+            <li key={status}>
+              <i style={{ background: epistemicColor(status) }} />
+              {status}
+            </li>
+          ))}
+        </ul>
+        <span className="key-note">
+          A dark outline means attached evidence; a faint outline means none.
+        </span>
       </div>
       <div className="key-section">
         <b>LINE / RELATION</b>

@@ -122,7 +122,7 @@ describe("StudioShell", () => {
 
     expect(screen.getByRole("button", { name: /^start$/i })).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: /gateway access/i }),
+      screen.getByRole("button", { name: /ai model/i }),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: /select event sourcing/i }));
     expect(screen.getByRole("heading", { name: "Event sourcing" })).toBeVisible();

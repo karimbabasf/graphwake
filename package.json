@@ -26,12 +26,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mcp": "tsx src/mcp/server.ts",
     "check": "npm test && npm run typecheck && npm run lint && npm run build"
   },
   "overrides": {
     "postcss": "8.5.16"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.96",
+    "@ai-sdk/openai": "^3.0.84",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "ai": "6.0.224",
     "dexie": "4.4.4",
     "dexie-react-hooks": "4.4.0",
@@ -57,6 +61,7 @@
     "eslint-config-next": "16.2.10",
     "fake-indexeddb": "6.2.5",
     "jsdom": "29.1.1",
+    "tsx": "^4.23.0",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   }

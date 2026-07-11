@@ -26,8 +26,8 @@ describe("Inspector", () => {
     objectTab.focus();
     await user.keyboard("{ArrowRight}");
 
-    expect(screen.getByRole("tab", { name: "Evidence" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Evidence" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Vector" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Vector" })).toHaveAttribute(
       "aria-selected",
       "true",
     );

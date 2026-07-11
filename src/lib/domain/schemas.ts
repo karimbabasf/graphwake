@@ -58,7 +58,7 @@ export const projectSchema = z
     purpose: z.string().trim().min(1).max(600),
     seedPrompt: z.string().trim().min(1).max(1_200),
     status: projectStatusSchema,
-    engine: z.enum(["local", "gateway"]),
+    engine: z.enum(["local", "model"]),
     createdAt: isoDateSchema,
     updatedAt: isoDateSchema,
     lastOpenedAt: isoDateSchema,
