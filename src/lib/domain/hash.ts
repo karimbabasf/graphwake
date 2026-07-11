@@ -59,5 +59,6 @@ export async function hashSnapshot(snapshot: GraphSnapshot): Promise<string> {
 
 export async function hashEvent(event: GraphEvent): Promise<string> {
   const { eventHash: _eventHash, ...hashableEvent } = event;
+  void _eventHash;
   return sha256(canonicalize(hashableEvent));
 }

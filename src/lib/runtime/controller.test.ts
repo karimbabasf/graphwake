@@ -47,9 +47,7 @@ describe("RunController", () => {
     });
     let nodeEvents = 0;
     let nextId = 0;
-    let controller: ReturnType<typeof createRunController>;
-
-    controller = createRunController({
+    const controller = createRunController({
       repository,
       now: () => NOW,
       createId: () => `runtime-${(nextId += 1)}`,
