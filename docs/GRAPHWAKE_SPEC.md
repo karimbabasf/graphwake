@@ -303,7 +303,7 @@ The deterministic engine derives seed concepts from the prompt, then adds typed 
 
 ### 8.3 Gateway engine
 
-`POST /api/generate` accepts a bounded project summary and one batch request. It uses `streamText` with `Output.array` and the verified default model `openai/gpt-5.6-terra`, overridable through `GRAPHWAKE_MODEL`. Each fully validated element is returned as NDJSON.
+`POST /api/generate` accepts a bounded project summary and one batch request. It uses `streamText` with `Output.array` and the verified default model `xai/grok-4.5`, overridable through `GRAPHWAKE_MODEL`. Each fully validated element is returned as NDJSON.
 
 The client:
 

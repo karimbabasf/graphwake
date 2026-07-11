@@ -37,7 +37,7 @@ cp .env.example .env.local
 ```env
 AI_GATEWAY_API_KEY=your_key_here
 GRAPHWAKE_API_TOKEN=a_random_value_with_at_least_24_characters
-GRAPHWAKE_MODEL=openai/gpt-5.6-terra
+GRAPHWAKE_MODEL=xai/grok-4.5
 GRAPHWAKE_EMBEDDING_MODEL=openai/text-embedding-3-small
 ```
 

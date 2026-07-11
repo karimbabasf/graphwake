@@ -7,7 +7,7 @@ import type {
   MutationProposal,
 } from "@/lib/domain/types";
 
-export const DEFAULT_MUTATION_MODEL = "openai/gpt-5.6-terra";
+export const DEFAULT_MUTATION_MODEL = "xai/grok-4.5";
 export const DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small";
 
 export interface PublicAiError {
