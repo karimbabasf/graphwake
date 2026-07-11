@@ -4,6 +4,19 @@
   "private": true,
   "description": "Local-first studio for replayable context, memory, and evidence graphs.",
   "license": "MIT",
+  "author": "Karim Baba",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karimbabasf/graphwake.git"
+  },
+  "homepage": "https://github.com/karimbabasf/graphwake#readme",
+  "bugs": {
+    "url": "https://github.com/karimbabasf/graphwake/issues"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "packageManager": "npm@11.13.0",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -12,7 +25,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "npm test && npm run typecheck && npm run lint && npm run build"
   },
   "overrides": {
     "postcss": "8.5.16"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  evidenceRefSchema,
   generationRequestSchema,
   mutationProposalSchema,
 } from "@/lib/domain/schemas";
@@ -48,6 +49,18 @@ describe("mutationProposalSchema", () => {
         confidence: 1.2,
         evidence: [],
         reason: "Tests the contract.",
+      }),
+    ).toThrow();
+  });
+});
+
+describe("evidenceRefSchema", () => {
+  it("rejects an executable URL scheme", () => {
+    expect(() =>
+      evidenceRefSchema.parse({
+        id: "evidence-1",
+        label: "Unsafe source",
+        uri: "javascript:alert(1)",
       }),
     ).toThrow();
   });

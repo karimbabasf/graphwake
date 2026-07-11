@@ -70,6 +70,7 @@ export function AccessibleGraph({
                 type="button"
                 aria-pressed={selectedNodeId === node.id}
                 onClick={() => onSelectNode(node.id)}
+                onFocus={() => onSelectNode(node.id)}
               >
                 <span>{node.label}</span>
                 <small>
@@ -90,6 +91,7 @@ export function AccessibleGraph({
                 type="button"
                 aria-pressed={selectedEdgeId === edge.id}
                 onClick={() => onSelectEdge(edge.id)}
+                onFocus={() => onSelectEdge(edge.id)}
               >
                 <span>{edge.relation}</span>
                 <small>

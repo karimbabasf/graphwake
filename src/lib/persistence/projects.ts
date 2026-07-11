@@ -1,6 +1,6 @@
 import { appendEvent, type AppendEventInput } from "@/lib/domain/events";
 import { projectSchema } from "@/lib/domain/schemas";
-import { replayEvents } from "@/lib/domain/replay";
+import { replayEvents, verifyLedger } from "@/lib/domain/replay";
 import type {
   EngineKind,
   GraphEvent,
@@ -33,10 +33,19 @@ interface RepositoryOptions {
   now?: () => string;
 }
 
+interface LoadProjectOptions {
+  verify?: boolean;
+}
+
 type ProjectEventInput<TPayload = unknown> = Omit<
   AppendEventInput<TPayload>,
   "projectId"
 >;
+
+type RecoveryLock = (
+  projectId: string,
+  recover: () => Promise<boolean>,
+) => Promise<boolean>;
 
 function statusForEvent(
   type: GraphEvent["type"],
@@ -138,7 +147,6 @@ export class ProjectRepository {
       },
     );
 
-    void requestPersistentStorage();
     return project;
   }
 
@@ -146,19 +154,57 @@ export class ProjectRepository {
     return this.database.projects.orderBy("updatedAt").reverse().toArray();
   }
 
-  async loadProject(projectId: string): Promise<LoadedProject | null> {
-    const [project, events, layouts] = await Promise.all([
-      this.database.projects.get(projectId),
-      this.database.events.where("projectId").equals(projectId).sortBy("sequence"),
-      this.database.layouts.where("projectId").equals(projectId).toArray(),
-    ]);
+  async loadProject(
+    projectId: string,
+    options: LoadProjectOptions = {},
+  ): Promise<LoadedProject | null> {
+    const [project, events, layouts] = await this.database.transaction(
+      "r",
+      this.database.projects,
+      this.database.events,
+      this.database.layouts,
+      () =>
+        Promise.all([
+          this.database.projects.get(projectId),
+          this.database.events
+            .where("projectId")
+            .equals(projectId)
+            .sortBy("sequence"),
+          this.database.layouts.where("projectId").equals(projectId).toArray(),
+        ]),
+    );
     if (!project) return null;
+
+    if (options.verify !== false) {
+      const verification = await verifyLedger(events);
+      if (!verification.valid) {
+        throw new Error(
+          `Ledger verification failed: ${verification.errors.join("; ")}`,
+        );
+      }
+    }
+
+    const snapshot = replayEvents(events);
+    if (options.verify !== false) {
+      const nodeCount = events.filter((event) => event.type === "node.added").length;
+      const edgeCount = events.filter((event) => event.type === "edge.added").length;
+      const indexedStateMatches =
+        project.eventCount === events.length &&
+        project.lastSequence === (events.at(-1)?.sequence ?? 0) &&
+        project.nodeCount === nodeCount &&
+        project.edgeCount === edgeCount &&
+        project.status === snapshot.status &&
+        project.name === snapshot.name;
+      if (!indexedStateMatches) {
+        throw new Error("Project index verification failed");
+      }
+    }
 
     return {
       project,
       events,
       layouts,
-      snapshot: replayEvents(events),
+      snapshot,
     };
   }
 
@@ -166,7 +212,7 @@ export class ProjectRepository {
     projectId: string,
     input: ProjectEventInput<TPayload>,
   ): Promise<GraphEvent<TPayload>> {
-    const loaded = await this.loadProject(projectId);
+    const loaded = await this.loadProject(projectId, { verify: false });
     if (!loaded) throw new Error(`Project ${projectId} was not found`);
 
     const event = await appendEvent(loaded.events, {
@@ -205,13 +251,14 @@ export class ProjectRepository {
   }
 
   async renameProject(projectId: string, name: string): Promise<void> {
+    const normalizedName = projectSchema.shape.name.parse(name);
     await this.appendProjectEvent(projectId, {
       type: "project.renamed",
       actor: "user",
       occurredAt: this.now(),
       reason: "Rename the graph project.",
       evidence: [],
-      payload: { name },
+      payload: { name: normalizedName },
     });
   }
 
@@ -220,6 +267,51 @@ export class ProjectRepository {
       lastOpenedAt: this.now(),
     });
     if (updated === 0) throw new Error(`Project ${projectId} was not found`);
+  }
+
+  async interruptProjectIfRunning(projectId: string): Promise<boolean> {
+    const loaded = await this.loadProject(projectId, { verify: false });
+    if (!loaded || loaded.project.status !== "running") return false;
+
+    const event = await appendEvent(loaded.events, {
+      id: this.createId(),
+      projectId,
+      type: "run.interrupted",
+      actor: "system",
+      occurredAt: this.now(),
+      reason: "The browser closed while this project was running.",
+      evidence: [],
+      payload: {},
+    });
+    let interrupted = false;
+
+    await this.database.transaction(
+      "rw",
+      this.database.projects,
+      this.database.events,
+      async () => {
+        const current = await this.database.projects.get(projectId);
+        if (
+          !current ||
+          current.status !== "running" ||
+          current.lastSequence !== loaded.project.lastSequence
+        ) {
+          return;
+        }
+
+        await this.database.events.add(event);
+        await this.database.projects.put({
+          ...current,
+          status: "interrupted",
+          updatedAt: event.occurredAt,
+          lastSequence: event.sequence,
+          eventCount: current.eventCount + 1,
+        });
+        interrupted = true;
+      },
+    );
+
+    return interrupted;
   }
 
   async saveLayout(
@@ -234,23 +326,25 @@ export class ProjectRepository {
     );
   }
 
-  async recoverInterruptedProjects(): Promise<number> {
+  async recoverInterruptedProjects(
+    withRecoveryLock: RecoveryLock = async (_projectId, recover) => recover(),
+  ): Promise<number> {
     const running = await this.database.projects
       .where("status")
       .equals("running")
       .toArray();
 
+    let recovered = 0;
     for (const project of running) {
-      await this.appendProjectEvent(project.id, {
-        type: "run.interrupted",
-        actor: "system",
-        occurredAt: this.now(),
-        reason: "The browser closed while this project was running.",
-        evidence: [],
-        payload: {},
-      });
+      if (
+        await withRecoveryLock(project.id, () =>
+          this.interruptProjectIfRunning(project.id),
+        )
+      ) {
+        recovered += 1;
+      }
     }
-    return running.length;
+    return recovered;
   }
 
   async deleteProject(projectId: string): Promise<void> {

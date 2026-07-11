@@ -93,4 +93,67 @@ describe("RunController", () => {
     );
     expect(controller.isActive).toBe(false);
   });
+
+  it("honors a stop requested while the project is still loading", async () => {
+    const project = await repository.createProject({
+      name: "Pending start",
+      purpose: "Stop before the source can emit.",
+      seedPrompt: "Do not commit a generated object.",
+      engine: "local",
+    });
+    let releaseLoad: (() => void) | undefined;
+    const loadGate = new Promise<void>((resolve) => {
+      releaseLoad = resolve;
+    });
+    let firstLoad = true;
+    const controller = createRunController({
+      repository: {
+        loadProject: async (projectId, options) => {
+          if (firstLoad) {
+            firstLoad = false;
+            await loadGate;
+          }
+          return repository.loadProject(projectId, options);
+        },
+        appendProjectEvent: (projectId, input) =>
+          repository.appendProjectEvent(projectId, input),
+      },
+      localSource: () => proposals(),
+      now: () => NOW,
+    });
+
+    const run = controller.start(project.id);
+    controller.stop();
+    releaseLoad?.();
+    await run;
+
+    const loaded = await repository.loadProject(project.id);
+    expect(
+      loaded?.events.filter((candidate) => candidate.type === "node.added"),
+    ).toHaveLength(0);
+    expect(loaded?.project.status).toBe("stopped");
+  });
+
+  it("honors a stop requested before start is called", async () => {
+    const project = await repository.createProject({
+      name: "Queued start",
+      purpose: "Cancel before a delayed lock grants the run.",
+      seedPrompt: "Do not commit generated objects after exit.",
+      engine: "local",
+    });
+    const controller = createRunController({
+      repository,
+      localSource: () => proposals(),
+      now: () => NOW,
+    });
+
+    controller.stop();
+    await controller.start(project.id);
+
+    const loaded = await repository.loadProject(project.id);
+    expect(
+      loaded?.events.filter((candidate) => candidate.type === "node.added"),
+    ).toHaveLength(0);
+    expect(loaded?.project.status).toBe("stopped");
+  });
 });

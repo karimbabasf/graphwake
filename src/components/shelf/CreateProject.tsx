@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Dialog } from "@/components/ui/Dialog";
 import type { CreateProjectInput } from "@/lib/persistence/projects";
+import { setGatewayAccessToken } from "@/lib/runtime/gatewayAccess";
 
 interface CreateProjectProps {
   onCreate: (input: CreateProjectInput) => Promise<void>;
@@ -16,6 +17,7 @@ export function CreateProject({ onCreate, empty = false }: CreateProjectProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [engine, setEngine] = useState<"local" | "gateway">("local");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,11 +25,17 @@ export function CreateProject({ onCreate, empty = false }: CreateProjectProps) {
     setSubmitting(true);
     setError(null);
     try {
+      const selectedEngine =
+        data.get("engine") === "gateway" ? "gateway" : "local";
+      const accessToken = String(data.get("accessToken") ?? "").trim();
+      if (selectedEngine === "gateway" && accessToken) {
+        setGatewayAccessToken(accessToken);
+      }
       await onCreate({
         name: String(data.get("name") ?? ""),
         purpose: String(data.get("purpose") ?? ""),
         seedPrompt: String(data.get("seedPrompt") ?? ""),
-        engine: data.get("engine") === "gateway" ? "gateway" : "local",
+        engine: selectedEngine,
       });
       setOpen(false);
     } catch (failure) {
@@ -81,20 +89,43 @@ export function CreateProject({ onCreate, empty = false }: CreateProjectProps) {
           <fieldset>
             <legend>Runner</legend>
             <label className="engine-option">
-              <input type="radio" name="engine" value="local" defaultChecked />
+              <input
+                type="radio"
+                name="engine"
+                value="local"
+                checked={engine === "local"}
+                onChange={() => setEngine("local")}
+              />
               <span>
                 <strong>Local study mode</strong>
                 Deterministic, private, and ready without a key.
               </span>
             </label>
             <label className="engine-option">
-              <input type="radio" name="engine" value="gateway" />
+              <input
+                type="radio"
+                name="engine"
+                value="gateway"
+                checked={engine === "gateway"}
+                onChange={() => setEngine("gateway")}
+              />
               <span>
                 <strong>AI Gateway</strong>
                 Model-generated proposals through your server configuration.
               </span>
             </label>
           </fieldset>
+          {engine === "gateway" ? (
+            <label>
+              <span>Deployment access token (optional in development)</span>
+              <input
+                name="accessToken"
+                type="password"
+                minLength={24}
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
           {error ? <p className="form-error" role="alert">{error}</p> : null}
           <div className="dialog-actions">
             <ActionButton tone="quiet" onClick={() => setOpen(false)}>

@@ -50,4 +50,24 @@ describe("projectSnapshot", () => {
       second.getNodeAttribute("claim", "y"),
     );
   });
+
+  it("projects distinct relations between the same two objects", () => {
+    const input = snapshot();
+    input.edges.push(
+      makeEdge({
+        id: "cause",
+        source: "source",
+        target: "claim",
+        relation: "refutes",
+      }),
+    );
+
+    const graph = projectSnapshot(input, []);
+
+    expect(graph.edges("source", "claim").sort()).toEqual(["cause", "support"]);
+    expect([
+      graph.getEdgeAttribute("cause", "lane"),
+      graph.getEdgeAttribute("support", "lane"),
+    ].sort()).toEqual([-0.5, 0.5]);
+  });
 });

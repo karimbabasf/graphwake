@@ -549,6 +549,27 @@ a {
   border-bottom: 1px solid var(--rule-strong);
 }
 
+.persistence-note {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.35fr) 1fr;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--question);
+}
+
+.persistence-note span {
+  color: #8a541c;
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  letter-spacing: 0.06em;
+}
+
+.persistence-note p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
 .shelf-error > span,
 .studio-failure > span {
   color: var(--danger);
@@ -850,6 +871,21 @@ a {
   font-size: 0.55rem;
 }
 
+.storage-warning {
+  padding: 0.7rem 1.15rem;
+  margin: auto 0 0;
+  border-top: 1px solid var(--question);
+  color: #714717;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.storage-warning + footer {
+  margin-top: 0;
+}
+
 .studio-rail > footer code {
   overflow: hidden;
   margin-left: auto;
@@ -940,6 +976,27 @@ a {
 
 .field-heading > div:first-child {
   min-width: 0;
+}
+
+.field-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.gateway-access-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--paper-wash);
 }
 
 .field-heading p {
@@ -1157,6 +1214,72 @@ a {
   margin: 0;
   color: var(--ink-muted);
   line-height: 1.45;
+}
+
+.graph-tooltip {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  width: min(245px, calc(100% - 1.5rem));
+  gap: 0.32rem;
+  padding: 0.7rem;
+  border: 1px solid var(--ink);
+  background: color-mix(in oklab, var(--paper-wash) 96%, transparent);
+  box-shadow: 6px 6px 0 color-mix(in oklab, var(--ink) 12%, transparent);
+  pointer-events: none;
+}
+
+.graph-tooltip > span {
+  color: var(--signal-dark);
+  font-family: var(--font-mono);
+  font-size: 0.51rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.graph-tooltip > strong {
+  font-size: 0.88rem;
+  line-height: 1.1;
+}
+
+.graph-tooltip > p,
+.graph-tooltip > small {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.graph-tooltip > small {
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+}
+
+.graph-tooltip dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  padding-top: 0.4rem;
+  margin: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.graph-tooltip dl div {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.graph-tooltip dt {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: 0.45rem;
+  text-transform: uppercase;
+}
+
+.graph-tooltip dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
 }
 
 .visual-key,
@@ -1648,9 +1771,9 @@ a {
   }
 
   .mobile-studio-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) 88px;
     align-items: center;
-    justify-content: space-between;
     padding: 0 0.55rem;
     border-bottom: 1px solid var(--ink);
     background: var(--paper-deep);
@@ -1666,15 +1789,33 @@ a {
     background: transparent;
   }
 
+  .mobile-studio-header > div {
+    display: flex;
+    justify-content: flex-end;
+  }
+
   .mobile-studio-header strong {
     overflow: hidden;
     font-size: 0.86rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: center;
   }
 
   .studio-rail {
     display: none;
+  }
+
+  .studio-rail.is-open {
+    position: fixed;
+    z-index: 110;
+    top: 52px;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    width: min(360px, 100%);
+    border-right: 1px solid var(--ink);
+    box-shadow: 10px 0 0 color-mix(in oklab, var(--ink) 12%, transparent);
   }
 
   .studio-field {
@@ -1783,7 +1924,19 @@ a {
   }
 
   .field-heading {
-    min-height: 58px;
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .field-heading .eyebrow {
+    white-space: nowrap;
+  }
+
+  .field-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .field-heading p,
@@ -1796,6 +1949,17 @@ a {
     min-height: 60px;
     grid-template-columns: 1fr auto;
     gap: 0.5rem;
+  }
+
+  .run-control .action-button,
+  .mutation-tools button,
+  .gateway-access-button,
+  .graph-tools button,
+  .legend-minimized,
+  .event-rail header button,
+  .event-ticks button {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .budget-meter,

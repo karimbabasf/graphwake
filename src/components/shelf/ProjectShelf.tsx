@@ -24,6 +24,7 @@ interface ProjectShelfProps {
   onExport: (projectId: string) => Promise<void>;
   onDelete: (projectId: string) => Promise<void>;
   onRetry?: () => void;
+  storagePersistent?: boolean | null;
 }
 
 function relativeDate(value: string): string {
@@ -46,6 +47,7 @@ export function ProjectShelf({
   onExport,
   onDelete,
   onRetry,
+  storagePersistent = null,
 }: ProjectShelfProps) {
   const [renameProject, setRenameProject] = useState<ProjectRecord | null>(null);
   const [deleteProject, setDeleteProject] = useState<ProjectRecord | null>(null);
@@ -124,6 +126,13 @@ export function ProjectShelf({
           </div>
         ) : null}
 
+        {!loading && !error && storagePersistent === false && projects.length > 0 ? (
+          <div className="persistence-note" role="status">
+            <span>STORAGE / BROWSER MANAGED</span>
+            <p>This browser may evict local projects under storage pressure. Export important ledgers after a session.</p>
+          </div>
+        ) : null}
+
         {!loading && !error && projects.length === 0 ? (
           <div className="empty-shelf">
             <div className="preview-network" aria-hidden="true">
@@ -195,7 +204,9 @@ export function ProjectShelf({
       </section>
 
       <footer className="shelf-footer">
-        <span>IndexedDB / ON DEVICE</span>
+        <span>
+          STORAGE / {storagePersistent === true ? "PERSISTENT" : "BROWSER MANAGED"}
+        </span>
         <span>EVENT LEDGER / SHA-256</span>
         <a href="https://github.com/karimbabasf/graphwake">SOURCE / MIT</a>
       </footer>

@@ -53,6 +53,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
   let currentStatus: ProjectStatus | "idle" = "idle";
   let controller: AbortController | null = null;
   let active = false;
+  let stopRequested = false;
 
   const publish = (event: GraphEvent) => dependencies.onEvent?.(event);
 
@@ -80,7 +81,9 @@ export function createRunController(dependencies: RunControllerDependencies) {
   ): AsyncGenerator<MutationProposal> {
     let batch = 0;
     while (!signal.aborted) {
-      const loaded = await dependencies.repository.loadProject(projectId);
+      const loaded = await dependencies.repository.loadProject(projectId, {
+        verify: false,
+      });
       if (!loaded) throw new Error(`Project ${projectId} was not found`);
       const request: GenerationRequest = {
         projectId,
@@ -111,11 +114,16 @@ export function createRunController(dependencies: RunControllerDependencies) {
 
   async function start(projectId: string): Promise<void> {
     if (active) throw new Error("A graph run is already active in this tab");
-    const loaded = await dependencies.repository.loadProject(projectId);
+    const stoppedBeforeStart = stopRequested;
+    stopRequested = false;
+    const loaded = await dependencies.repository.loadProject(projectId, {
+      verify: false,
+    });
     if (!loaded) throw new Error(`Project ${projectId} was not found`);
 
     active = true;
     controller = new AbortController();
+    if (stoppedBeforeStart || stopRequested) controller.abort();
     currentStatus = "running";
     try {
       await appendLifecycle(projectId, "run.started", "Start the graph run.");
@@ -123,6 +131,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
       active = false;
       controller = null;
       currentStatus = "failed";
+      stopRequested = false;
       throw error;
     }
 
@@ -243,6 +252,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
     } finally {
       active = false;
       controller = null;
+      stopRequested = false;
     }
   }
 
@@ -250,6 +260,7 @@ export function createRunController(dependencies: RunControllerDependencies) {
     start,
     resume: start,
     stop() {
+      stopRequested = true;
       controller?.abort();
     },
     get status() {

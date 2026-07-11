@@ -1,7 +1,12 @@
 "use client";
 
 import { Box, FileSearch, Network, Sigma as SigmaIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  useId,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { ActionButton } from "@/components/ui/ActionButton";
 import type {
@@ -14,6 +19,13 @@ import { degreeCentrality } from "@/lib/insights/graphMetrics";
 import { cosineSimilarity } from "@/lib/insights/vectors";
 
 type InspectorTab = "object" | "evidence" | "vector" | "insight";
+
+const INSPECTOR_TABS = [
+  ["object", Box, "Object"],
+  ["evidence", FileSearch, "Evidence"],
+  ["vector", SigmaIcon, "Vector"],
+  ["insight", Network, "Insight"],
+] as const;
 
 interface InspectorProps {
   snapshot: GraphSnapshot;
@@ -36,6 +48,7 @@ function shortHash(value: string | null): string {
 export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("object");
   const [embedding, setEmbedding] = useState(false);
+  const tabGroupId = useId();
   const evidence = node?.evidence ?? edge?.evidence ?? event?.evidence ?? [];
   const insight = useMemo(
     () => (node ? degreeCentrality(snapshot, node.id) : null),
@@ -64,6 +77,23 @@ export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorPro
 
   const title = node?.label ?? edge?.relation ?? (event ? `Event ${event.sequence}` : "Nothing selected");
 
+  function moveTab(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = INSPECTOR_TABS.findIndex(([value]) => value === tab);
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % INSPECTOR_TABS.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + INSPECTOR_TABS.length) % INSPECTOR_TABS.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = INSPECTOR_TABS.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = INSPECTOR_TABS[nextIndex][0];
+    setTab(nextTab);
+    event.currentTarget.parentElement
+      ?.querySelector<HTMLButtonElement>(`[data-inspector-tab="${nextTab}"]`)
+      ?.focus();
+  }
+
   return (
     <aside className="inspector" aria-label="Object inspector">
       <header className="inspector-heading">
@@ -75,18 +105,18 @@ export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorPro
       </header>
 
       <div className="inspector-tabs" role="tablist" aria-label="Inspector views">
-        {([
-          ["object", Box, "Object"],
-          ["evidence", FileSearch, "Evidence"],
-          ["vector", SigmaIcon, "Vector"],
-          ["insight", Network, "Insight"],
-        ] as const).map(([value, Icon, label]) => (
+        {INSPECTOR_TABS.map(([value, Icon, label]) => (
           <button
             key={value}
+            id={`${tabGroupId}-${value}-tab`}
             type="button"
             role="tab"
             aria-selected={tab === value}
+            aria-controls={`${tabGroupId}-panel`}
+            tabIndex={tab === value ? 0 : -1}
+            data-inspector-tab={value}
             onClick={() => setTab(value)}
+            onKeyDown={moveTab}
           >
             <Icon aria-hidden="true" size={14} />
             {label}
@@ -94,7 +124,13 @@ export function Inspector({ snapshot, node, edge, event, onEmbed }: InspectorPro
         ))}
       </div>
 
-      <div className="inspector-body" role="tabpanel">
+      <div
+        id={`${tabGroupId}-panel`}
+        className="inspector-body"
+        role="tabpanel"
+        aria-labelledby={`${tabGroupId}-${tab}-tab`}
+        tabIndex={0}
+      >
         {tab === "object" ? (
           <div className="specimen-sheet">
             {node ? (
