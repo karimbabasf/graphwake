@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="560" viewBox="0 0 1600 560" role="img" aria-labelledby="title desc">
+  <title id="title">Graphwake</title>
+  <desc id="desc">A measured graph field showing a state transition and evidence nodes.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#151719" stroke-opacity=".13" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1600" height="560" fill="#dcebe5"/>
+  <rect width="1600" height="560" fill="url(#grid)"/>
+  <path d="M92 66H1508M92 482H1508" stroke="#151719" stroke-width="2"/>
+  <g transform="translate(92 90)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#151719">
+    <g transform="translate(0 4)">
+      <path d="M7 8 26 34M8 8l37 2M26 34l19-24" fill="none" stroke="#151719" stroke-width="2"/>
+      <circle cx="7" cy="8" r="6" fill="#16735a" stroke="#151719" stroke-width="2"/>
+      <rect x="20" y="28" width="12" height="12" fill="#dcebe5" stroke="#151719" stroke-width="2" transform="rotate(45 26 34)"/>
+      <circle cx="45" cy="10" r="7" fill="#2b50d6" stroke="#151719" stroke-width="2"/>
+    </g>
+    <text x="70" y="26" font-size="20" font-weight="700" letter-spacing="5">GRAPHWAKE</text>
+    <text x="1260" y="26" font-size="14" letter-spacing="3">LOCAL FIRST / V1</text>
+  </g>
+  <g transform="translate(92 190)" font-family="Arial, Helvetica, sans-serif">
+    <text fill="#244bc8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="15" font-weight="700" letter-spacing="4">CONTEXT BECOMES INSPECTABLE</text>
+    <text y="88" fill="#151719" font-size="88" font-weight="700" letter-spacing="-6">See knowledge</text>
+    <text y="168" fill="#151719" font-size="88" font-weight="700" letter-spacing="-6">change state.</text>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <path d="M880 370 1030 245" stroke="#16735a" stroke-width="3"/>
+    <path d="M1030 245 1240 325" stroke="#2b50d6" stroke-width="3" stroke-dasharray="12 7"/>
+    <path d="M1030 245 1375 185" stroke="#7b4bb7" stroke-width="3" stroke-dasharray="3 8"/>
+    <path d="M1240 325 1375 185" stroke="#b26622" stroke-width="3" stroke-dasharray="16 7 3 7"/>
+  </g>
+  <g stroke="#151719" stroke-width="3">
+    <circle cx="880" cy="370" r="15" fill="#16735a"/>
+    <rect x="1015" y="230" width="30" height="30" fill="#dcebe5" transform="rotate(45 1030 245)"/>
+    <path d="M1240 306 1258 339h-36z" fill="#d29d43"/>
+    <circle cx="1375" cy="185" r="18" fill="#2b50d6" filter="url(#glow)"/>
+    <circle cx="1375" cy="185" r="8" fill="#dcebe5"/>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" fill="#151719" font-size="14">
+    <text x="852" y="407">source</text>
+    <text x="991" y="285">assertion</text>
+    <text x="1201" y="365">question</text>
+    <text x="1340" y="225">state</text>
+    <text x="1300" y="440" fill="#244bc8" font-size="22">S0 + e17 → S1</text>
+  </g>
+</svg>

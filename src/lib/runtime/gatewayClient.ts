@@ -3,6 +3,7 @@ import type {
   GenerationRequest,
   MutationProposal,
 } from "@/lib/domain/types";
+import { gatewayRequestHeaders } from "@/lib/runtime/gatewayAccess";
 
 export class GatewayStreamError extends Error {
   readonly code: string;
@@ -100,7 +101,7 @@ export async function* requestMutationBatch(
 ): AsyncGenerator<MutationProposal> {
   const response = await fetcher("/api/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: gatewayRequestHeaders(),
     body: JSON.stringify(request),
     cache: "no-store",
     signal,

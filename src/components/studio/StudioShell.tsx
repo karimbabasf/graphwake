@@ -17,6 +17,7 @@ import {
 import { AccessibleGraph } from "@/components/graph/AccessibleGraph";
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
 import { EventRail } from "@/components/studio/EventRail";
+import { GatewayAccess } from "@/components/studio/GatewayAccess";
 import { Inspector } from "@/components/studio/Inspector";
 import { Legend } from "@/components/studio/Legend";
 import {
@@ -38,12 +39,15 @@ import type {
   ProjectRepository,
 } from "@/lib/persistence/projects";
 import { createRunController } from "@/lib/runtime/controller";
+import { gatewayRequestHeaders } from "@/lib/runtime/gatewayAccess";
+import { runWithProjectLock } from "@/lib/runtime/runLock";
 
 interface StudioShellProps {
   projectId: string;
-  onExit: () => void;
+  onExit: () => void | Promise<void>;
   repository?: ProjectRepository;
   initialData?: LoadedProject;
+  storagePersistent?: boolean | null;
 }
 
 interface EmbedResponse {
@@ -82,9 +86,13 @@ export function StudioShell({
   onExit,
   repository,
   initialData,
+  storagePersistent = null,
 }: StudioShellProps) {
   const repositoryRef = useRef<ProjectRepository | null>(repository ?? null);
   const controllerRef = useRef<ReturnType<typeof createRunController> | null>(null);
+  const runTaskRef = useRef<Promise<void> | null>(null);
+  const exitTaskRef = useRef<Promise<void> | null>(null);
+  const exitRequestedRef = useRef(false);
   const [loaded, setLoaded] = useState<LoadedProject | null>(initialData ?? null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -97,6 +105,7 @@ export function StudioShell({
   const [manualMode, setManualMode] = useState<ManualMode>(null);
   const [showObjects, setShowObjects] = useState(false);
   const [showInspector, setShowInspector] = useState(false);
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
     if (repository) repositoryRef.current = repository;
@@ -109,9 +118,9 @@ export function StudioShell({
     return repositoryModule.projectRepository;
   }, []);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (verify = true) => {
     const currentRepository = await getRepository();
-    const current = await currentRepository.loadProject(projectId);
+    const current = await currentRepository.loadProject(projectId, { verify });
     if (!current) throw new Error("This project no longer exists in local storage.");
     setLoaded(current);
     return current;
@@ -149,32 +158,58 @@ export function StudioShell({
   const selectedEvent =
     loaded?.events.find((event) => event.id === selectedEventId) ?? null;
 
-  const start = useCallback(async () => {
-    if (running || replaySequence !== null) return;
+  const start = useCallback(() => {
+    if (runTaskRef.current || running || replaySequence !== null) return;
     setRuntimeError(null);
-    const currentRepository = await getRepository();
-    const controller = createRunController({
-      repository: currentRepository,
-      onEvent(event) {
-        setWakeEvent(event);
-        setSelectedEventId(event.id);
-        void reload();
-      },
-    });
-    controllerRef.current = controller;
     setRunning(true);
-    void controller.start(projectId).catch((error) => {
-      setRuntimeError(error instanceof Error ? error.message : "The graph runner failed.");
-    }).finally(() => {
-      setRunning(false);
-      controllerRef.current = null;
-      void reload();
+    const task = (async () => {
+      const currentRepository = await getRepository();
+      const controller = createRunController({
+        repository: currentRepository,
+        onEvent(event) {
+          setWakeEvent(event);
+          setSelectedEventId(event.id);
+          void reload(false);
+        },
+      });
+      controllerRef.current = controller;
+      if (exitRequestedRef.current) controller.stop();
+      await runWithProjectLock(projectId, () => controller.start(projectId));
+    })()
+      .catch((error) => {
+        setRuntimeError(error instanceof Error ? error.message : "The graph runner failed.");
+      })
+      .finally(async () => {
+        setRunning(false);
+        controllerRef.current = null;
+        try {
+          await reload();
+        } catch (error) {
+          setRuntimeError(error instanceof Error ? error.message : "The project could not be reloaded.");
+        }
+      });
+    runTaskRef.current = task;
+    void task.finally(() => {
+      if (runTaskRef.current === task) runTaskRef.current = null;
     });
   }, [getRepository, projectId, reload, replaySequence, running]);
 
   const stop = useCallback(() => {
     controllerRef.current?.stop();
   }, []);
+
+  const exitStudio = useCallback(() => {
+    if (exitTaskRef.current) return exitTaskRef.current;
+    const task = (async () => {
+      exitRequestedRef.current = true;
+      setExiting(true);
+      controllerRef.current?.stop();
+      await runTaskRef.current;
+      await onExit();
+    })();
+    exitTaskRef.current = task;
+    return task;
+  }, [onExit]);
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -200,6 +235,8 @@ export function StudioShell({
         setManualMode(null);
         setSelectedNodeId(null);
         setSelectedEdgeId(null);
+        setShowObjects(false);
+        setShowInspector(false);
       }
     }
     window.addEventListener("keydown", shortcut);
@@ -229,14 +266,17 @@ export function StudioShell({
     });
     setWakeEvent(event);
     setSelectedEventId(event.id);
-    await reload();
+    await reload(false);
   }
 
   async function embedNode(node: GraphNode) {
+    if (replaySequence !== null || running) {
+      throw new Error("Return to a stopped live state before changing a vector.");
+    }
     setRuntimeError(null);
     const response = await fetch("/api/embed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: gatewayRequestHeaders(),
       body: JSON.stringify({ values: [`${node.label} ${node.summary}`] }),
     });
     const body: unknown = await response.json();
@@ -272,7 +312,7 @@ export function StudioShell({
     });
     setWakeEvent(event);
     setSelectedEventId(event.id);
-    await reload();
+    await reload(false);
   }
 
   async function saveLayout(
@@ -280,7 +320,7 @@ export function StudioShell({
   ) {
     const currentRepository = await getRepository();
     await currentRepository.saveLayout(projectId, positions);
-    await reload();
+    await reload(false);
   }
 
   if (loadError) {
@@ -289,7 +329,7 @@ export function StudioShell({
         <span>PROJECT LOAD FAILED</span>
         <h1>The local record could not be opened.</h1>
         <p>{loadError}</p>
-        <button type="button" onClick={onExit}>Return to projects</button>
+        <button type="button" onClick={() => void exitStudio()} disabled={exiting}>Return to projects</button>
       </main>
     );
   }
@@ -308,18 +348,21 @@ export function StudioShell({
   return (
     <main className={`studio-shell ${replaying ? "is-replaying" : ""}`}>
       <header className="mobile-studio-header">
-        <button type="button" onClick={onExit} aria-label="Back to projects"><ArrowLeft size={18} /></button>
+        <button type="button" onClick={() => void exitStudio()} disabled={exiting} aria-label="Back to projects"><ArrowLeft size={18} /></button>
         <strong>{loaded.project.name}</strong>
-        <button type="button" onClick={() => setShowInspector(true)} aria-label="Open inspector"><PanelRight size={18} /></button>
+        <div>
+          <button type="button" onClick={() => setShowObjects(true)} aria-label="Open object index"><Database size={18} /></button>
+          <button type="button" onClick={() => setShowInspector(true)} aria-label="Open inspector"><PanelRight size={18} /></button>
+        </div>
       </header>
 
       <aside className={`studio-rail ${showObjects ? "is-open" : ""}`}>
         <header>
-          <button className="studio-wordmark" type="button" onClick={onExit}>
+          <button className="studio-wordmark" type="button" onClick={() => void exitStudio()} disabled={exiting}>
             <span className="wordmark-mark" aria-hidden="true"><i /><i /><i /></span>
             GRAPHWAKE
           </button>
-          <button className="back-projects" type="button" onClick={onExit}>
+          <button className="back-projects" type="button" onClick={() => void exitStudio()} disabled={exiting}>
             <ArrowLeft aria-hidden="true" size={15} /> PROJECTS
           </button>
         </header>
@@ -355,6 +398,11 @@ export function StudioShell({
             }}
           />
         ) : null}
+        {storagePersistent === false ? (
+          <p className="storage-warning">
+            Browser-managed storage. Export this ledger after important work.
+          </p>
+        ) : null}
         <footer>
           <Braces aria-hidden="true" size={14} />
           <span>STATE</span>
@@ -370,14 +418,17 @@ export function StudioShell({
             </span>
             <p>{loaded.project.seedPrompt}</p>
           </div>
-          <ManualMutation
-            mode={manualMode}
-            snapshot={snapshot}
-            selectedNodeId={selectedNodeId}
-            disabled={running || replaying}
-            onModeChange={setManualMode}
-            onSubmit={commitProposal}
-          />
+          <div className="field-actions">
+            <GatewayAccess />
+            <ManualMutation
+              mode={manualMode}
+              snapshot={snapshot}
+              selectedNodeId={selectedNodeId}
+              disabled={running || replaying}
+              onModeChange={setManualMode}
+              onSubmit={commitProposal}
+            />
+          </div>
         </header>
         <RunControl
           status={status}
@@ -396,14 +447,22 @@ export function StudioShell({
         <div className="graph-field">
           <GraphCanvas
             snapshot={snapshot}
+            events={loaded.events}
             layouts={loaded.layouts}
             activeEvent={replaying ? null : wakeEvent}
             selectedNodeId={selectedNodeId}
+            selectedEdgeId={selectedEdgeId}
             onSelectNode={(nodeId) => {
               setSelectedNodeId(nodeId);
               setSelectedEdgeId(null);
               setSelectedEventId(null);
               if (nodeId) setShowInspector(true);
+            }}
+            onSelectEdge={(edgeId) => {
+              setSelectedEdgeId(edgeId);
+              setSelectedNodeId(null);
+              setSelectedEventId(null);
+              if (edgeId) setShowInspector(true);
             }}
             onSaveLayout={saveLayout}
             readOnly={running || replaying}
@@ -433,7 +492,7 @@ export function StudioShell({
           node={selectedNode}
           edge={selectedEdge}
           event={selectedEvent}
-          onEmbed={embedNode}
+          onEmbed={replaying || running ? undefined : embedNode}
         />
       </div>
     </main>

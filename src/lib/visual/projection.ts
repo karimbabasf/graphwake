@@ -1,4 +1,4 @@
-import { DirectedGraph } from "graphology";
+import { MultiDirectedGraph } from "graphology";
 
 import type {
   GraphSnapshot,
@@ -30,9 +30,10 @@ export interface ProjectedEdgeAttributes {
   size: number;
   type: "arrow";
   confidence: number;
+  lane: number;
 }
 
-export type ProjectedGraph = DirectedGraph<
+export type ProjectedGraph = MultiDirectedGraph<
   ProjectedNodeAttributes,
   ProjectedEdgeAttributes
 >;
@@ -67,11 +68,31 @@ export function projectSnapshot(
   snapshot: GraphSnapshot,
   layouts: LayoutPosition[],
 ): ProjectedGraph {
-  const graph = new DirectedGraph<
+  const graph = new MultiDirectedGraph<
     ProjectedNodeAttributes,
     ProjectedEdgeAttributes
   >();
   const positions = new Map(layouts.map((position) => [position.nodeId, position]));
+  const parallelGroups = new Map<string, typeof snapshot.edges>();
+  for (const edge of snapshot.edges) {
+    const first = edge.source < edge.target ? edge.source : edge.target;
+    const second = edge.source < edge.target ? edge.target : edge.source;
+    const key = `${first}\u0000${second}`;
+    const group = parallelGroups.get(key) ?? [];
+    group.push(edge);
+    parallelGroups.set(key, group);
+  }
+  const lanes = new Map<string, number>();
+  for (const group of parallelGroups.values()) {
+    const ordered = [...group].sort((left, right) =>
+      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    );
+    ordered.forEach((edge, index) => {
+      const centeredLane = index - (ordered.length - 1) / 2;
+      const direction = edge.source <= edge.target ? 1 : -1;
+      lanes.set(edge.id, centeredLane * direction);
+    });
+  }
 
   snapshot.nodes.forEach((node, index) => {
     const position = positions.get(node.id) ?? deterministicPosition(node.id, index);
@@ -101,6 +122,7 @@ export function projectSnapshot(
       size: visual.size,
       type: visual.type,
       confidence: edge.confidence,
+      lane: lanes.get(edge.id) ?? 0,
     });
   });
 

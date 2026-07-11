@@ -21,7 +21,10 @@ const validBody = {
 function request(body: unknown): Request {
   return new Request("http://localhost/api/generate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost",
+    },
     body: JSON.stringify(body),
   });
 }
@@ -49,6 +52,17 @@ describe("POST /api/generate", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(adapter.streamMutationElements).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cross-origin caller before model work", async () => {
+    adapter.hasGatewayCredentials.mockReturnValue(true);
+    const incoming = request(validBody);
+    incoming.headers.set("Origin", "https://attacker.example");
+
+    const response = await POST(incoming);
+
+    expect(response.status).toBe(403);
     expect(adapter.streamMutationElements).not.toHaveBeenCalled();
   });
 
@@ -82,5 +96,31 @@ describe("POST /api/generate", () => {
       expect.objectContaining({ projectId: "project-1" }),
       incoming.signal,
     );
+  });
+
+  it("caps a model stream at the batch proposal limit", async () => {
+    adapter.hasGatewayCredentials.mockReturnValue(true);
+    adapter.streamMutationElements.mockReturnValue(
+      (async function* () {
+        for (let index = 0; index < 12; index += 1) {
+          yield {
+            type: "add-node",
+            ref: `node-${index}`,
+            label: `Node ${index}`,
+            summary: "A bounded proposal.",
+            kind: "concept",
+            epistemicStatus: "inferred",
+            confidence: 0.5,
+            evidence: [],
+            reason: "Test the route batch boundary.",
+          };
+        }
+      })(),
+    );
+
+    const response = await POST(request(validBody));
+    const lines = (await response.text()).trim().split("\n");
+
+    expect(lines).toHaveLength(8);
   });
 });

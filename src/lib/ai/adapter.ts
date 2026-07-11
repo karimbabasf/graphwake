@@ -44,6 +44,7 @@ export function streamMutationElements(
     }),
     prompt: buildMutationPrompt(request),
     abortSignal: signal,
+    maxOutputTokens: 3_000,
     providerOptions: {
       gateway: {
         tags: ["project:graphwake", "feature:graph-mutation"],

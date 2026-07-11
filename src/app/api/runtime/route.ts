@@ -9,6 +9,7 @@ export function GET(): Response {
   return Response.json(
     {
       gatewayConfigured: hasGatewayCredentials(),
+      accessTokenRequired: Boolean(process.env.GRAPHWAKE_API_TOKEN),
       mutationModel: configuredMutationModel(),
       embeddingModel: configuredEmbeddingModel(),
       limits: RUN_LIMITS,

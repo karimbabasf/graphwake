@@ -12,6 +12,13 @@ import {
 const identifierSchema = z.string().trim().min(1).max(160);
 const isoDateSchema = z.iso.datetime({ offset: true });
 const confidenceSchema = z.number().min(0).max(1);
+const httpUrlSchema = z
+  .url()
+  .max(2_048)
+  .refine((value) => {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  }, "Evidence URLs must use HTTP or HTTPS");
 
 export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 export const actorKindSchema = z.enum(ACTOR_KINDS);
@@ -24,7 +31,7 @@ export const evidenceRefSchema = z
   .object({
     id: identifierSchema,
     label: z.string().trim().min(1).max(160),
-    uri: z.url().max(2_048).optional(),
+    uri: httpUrlSchema.optional(),
     excerpt: z.string().trim().min(1).max(1_000).optional(),
     contentHash: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   })

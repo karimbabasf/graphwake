@@ -34,6 +34,9 @@ export function ManualMutation({
 }: ManualMutationProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const defaultSourceId = selectedNodeId ?? snapshot.nodes[0]?.id ?? "";
+  const defaultTargetId =
+    snapshot.nodes.find((node) => node.id !== defaultSourceId)?.id ?? "";
 
   async function submitNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +115,7 @@ export function ManualMutation({
         open={mode === "node"}
         onClose={() => onModeChange(null)}
         title="Add object"
-        description="The object becomes a signed event in this project's local ledger."
+        description="The object becomes a hashed event in this project's local ledger."
       >
         <form className="project-form compact-form" onSubmit={submitNode}>
           <div className="form-grid">
@@ -174,7 +177,7 @@ export function ManualMutation({
         <form className="project-form compact-form" onSubmit={submitEdge}>
           <label>
             <span>Source object</span>
-            <select name="source" defaultValue={selectedNodeId ?? snapshot.nodes[0]?.id} required>
+            <select name="source" defaultValue={defaultSourceId} required>
               {snapshot.nodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
             </select>
           </label>
@@ -186,7 +189,7 @@ export function ManualMutation({
           </label>
           <label>
             <span>Target object</span>
-            <select name="target" defaultValue={snapshot.nodes.find((node) => node.id !== selectedNodeId)?.id} required>
+            <select name="target" defaultValue={defaultTargetId} required>
               {snapshot.nodes.map((node) => <option key={node.id} value={node.id}>{node.label}</option>)}
             </select>
           </label>

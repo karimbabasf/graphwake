@@ -4,17 +4,54 @@ import {
   streamMutationElements,
 } from "@/lib/ai/adapter";
 import { generationRequestSchema } from "@/lib/domain/schemas";
+import {
+  AiRequestBodyError,
+  authorizeAiRequest,
+  guardAiAuthorizationFailure,
+  guardAiRequest,
+  readBoundedJson,
+} from "@/lib/http/aiRequestGuard";
+import { RUN_LIMITS } from "@/lib/runtime/limits";
 
 const encoder = new TextEncoder();
 
-function jsonError(status: number, code: string, message: string): Response {
+function jsonError(
+  status: number,
+  code: string,
+  message: string,
+  headers: Record<string, string> = {},
+): Response {
   return Response.json(
     { code, message },
-    { status, headers: { "Cache-Control": "no-store" } },
+    { status, headers: { "Cache-Control": "no-store", ...headers } },
   );
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const authorization = authorizeAiRequest(request);
+  if (authorization) {
+    const failureLimit = authorization.status === 401
+      ? guardAiAuthorizationFailure()
+      : null;
+    const rejection = failureLimit ?? authorization;
+    return jsonError(
+      rejection.status,
+      rejection.code,
+      rejection.message,
+      rejection.headers,
+    );
+  }
+
+  const rejection = guardAiRequest(request);
+  if (rejection) {
+    return jsonError(
+      rejection.status,
+      rejection.code,
+      rejection.message,
+      rejection.headers,
+    );
+  }
+
   if (!hasGatewayCredentials()) {
     return jsonError(
       503,
@@ -25,8 +62,11 @@ export async function POST(request: Request): Promise<Response> {
 
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await readBoundedJson(request);
+  } catch (error) {
+    if (error instanceof AiRequestBodyError) {
+      return jsonError(error.status, error.code, error.message);
+    }
     return jsonError(400, "INVALID_JSON", "The request body must be valid JSON.");
   }
 
@@ -50,8 +90,11 @@ export async function POST(request: Request): Promise<Response> {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
+        let emitted = 0;
         for await (const element of elements) {
           controller.enqueue(encoder.encode(`${JSON.stringify(element)}\n`));
+          emitted += 1;
+          if (emitted >= RUN_LIMITS.proposalsPerBatch) break;
         }
       } catch (error) {
         const failure = publicAiError(error);

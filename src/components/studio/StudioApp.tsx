@@ -10,6 +10,7 @@ import type {
   CreateProjectInput,
   ProjectRepository,
 } from "@/lib/persistence/projects";
+import { withAvailableProjectLock } from "@/lib/runtime/runLock";
 
 export function StudioApp() {
   const repositoryRef = useRef<ProjectRepository | null>(null);
@@ -17,6 +18,9 @@ export function StudioApp() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [storagePersistent, setStoragePersistent] = useState<boolean | null>(
+    null,
+  );
 
   const getRepository = useCallback(async () => {
     if (repositoryRef.current) return repositoryRef.current;
@@ -42,7 +46,14 @@ export function StudioApp() {
     let cancelled = false;
     void getRepository()
       .then(async (repository) => {
-        await repository.recoverInterruptedProjects();
+        await repository.recoverInterruptedProjects(async (projectId, recover) => {
+          const result = await withAvailableProjectLock(projectId, recover);
+          return result.acquired ? result.value : false;
+        });
+        if (navigator.storage?.persisted) {
+          const persistent = await navigator.storage.persisted();
+          if (!cancelled) setStoragePersistent(persistent);
+        }
         if (!cancelled) await refresh();
       })
       .catch((failure) => {
@@ -59,6 +70,8 @@ export function StudioApp() {
   async function create(input: CreateProjectInput) {
     const repository = await getRepository();
     const project = await repository.createProject(input);
+    const persistenceModule = await import("@/lib/persistence/projects");
+    setStoragePersistent(await persistenceModule.requestPersistentStorage());
     setProjects((current) => [project, ...current]);
     setActiveProjectId(project.id);
   }
@@ -95,10 +108,11 @@ export function StudioApp() {
     return (
       <StudioShell
         projectId={activeProjectId}
-        onExit={() => {
+        onExit={async () => {
           setActiveProjectId(null);
-          void refresh();
+          await refresh();
         }}
+        storagePersistent={storagePersistent}
       />
     );
   }
@@ -114,6 +128,7 @@ export function StudioApp() {
       onExport={download}
       onDelete={remove}
       onRetry={() => void refresh()}
+      storagePersistent={storagePersistent}
     />
   );
 }

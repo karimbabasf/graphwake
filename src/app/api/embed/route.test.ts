@@ -12,7 +12,10 @@ import { POST } from "@/app/api/embed/route";
 function request(values: string[]): Request {
   return new Request("http://localhost/api/embed", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "http://localhost",
+    },
     body: JSON.stringify({ values }),
   });
 }
@@ -27,6 +30,17 @@ describe("POST /api/embed", () => {
     adapter.hasGatewayCredentials.mockReturnValue(false);
     const response = await POST(request(["context graph"]));
     expect(response.status).toBe(503);
+  });
+
+  it("rejects a cross-origin caller before embedding work", async () => {
+    adapter.hasGatewayCredentials.mockReturnValue(true);
+    const incoming = request(["context graph"]);
+    incoming.headers.set("Origin", "https://attacker.example");
+
+    const response = await POST(incoming);
+
+    expect(response.status).toBe(403);
+    expect(adapter.embedNodeTexts).not.toHaveBeenCalled();
   });
 
   it("returns the exact model, dimensions, vectors, and usage", async () => {

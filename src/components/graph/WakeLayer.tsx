@@ -9,16 +9,24 @@ import type {
   ProjectedNodeAttributes,
 } from "@/lib/visual/projection";
 import { wakeColor } from "@/lib/visual/encodings";
+import {
+  quadraticControlPoint,
+  quadraticPoint,
+  quadraticTangent,
+  type Point,
+} from "@/lib/visual/edgeGeometry";
 
 interface WakeLayerProps {
   renderer: Sigma<ProjectedNodeAttributes, ProjectedEdgeAttributes> | null;
   activeEvent: GraphEvent | null;
   selectedNodeId: string | null;
+  selectedEdgeId: string | null;
   reducedMotion?: boolean;
 }
 
 interface Pulse {
   eventId: string;
+  edgeId: string;
   source: string;
   target: string;
   startedAt: number;
@@ -26,16 +34,29 @@ interface Pulse {
   reduced: boolean;
 }
 
-function edgeEndpoints(event: GraphEvent): [string, string] | null {
+function edgeEndpoints(
+  event: GraphEvent,
+): { edgeId: string; source: string; target: string } | null {
   if (event.type !== "edge.added" || !event.payload || typeof event.payload !== "object") {
     return null;
   }
   const edge = (event.payload as { edge?: unknown }).edge;
   if (!edge || typeof edge !== "object") return null;
-  const { source, target } = edge as { source?: unknown; target?: unknown };
-  return typeof source === "string" && typeof target === "string"
-    ? [source, target]
+  const { id, source, target } = edge as {
+    id?: unknown;
+    source?: unknown;
+    target?: unknown;
+  };
+  return typeof id === "string" &&
+    typeof source === "string" &&
+    typeof target === "string"
+    ? { edgeId: id, source, target }
     : null;
+}
+
+function unitVector(vector: Point): Point {
+  const length = Math.hypot(vector.x, vector.y) || 1;
+  return { x: vector.x / length, y: vector.y / length };
 }
 
 function drawPolygon(
@@ -92,6 +113,7 @@ export function WakeLayer({
   renderer,
   activeEvent,
   selectedNodeId,
+  selectedEdgeId,
   reducedMotion,
 }: WakeLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -120,6 +142,68 @@ export function WakeLayer({
       context.clearRect(0, 0, dimensions.width, dimensions.height);
 
       const graph = renderer.getGraph();
+      graph.forEachEdge((edgeId, attributes, sourceId, targetId) => {
+        const sourceData = renderer.getNodeDisplayData(sourceId);
+        const targetData = renderer.getNodeDisplayData(targetId);
+        if (!sourceData || !targetData || sourceData.hidden || targetData.hidden) {
+          return;
+        }
+        const source = renderer.framedGraphToViewport(sourceData);
+        const target = renderer.framedGraphToViewport(targetData);
+        const control = quadraticControlPoint(source, target, attributes.lane);
+        const startUnit = unitVector(
+          quadraticTangent(source, control, target, 0),
+        );
+        const endUnit = unitVector(
+          quadraticTangent(source, control, target, 1),
+        );
+        const sourceRadius = Math.max(4, renderer.scaleSize(sourceData.size));
+        const targetRadius = Math.max(4, renderer.scaleSize(targetData.size));
+        const start = {
+          x: source.x + startUnit.x * sourceRadius,
+          y: source.y + startUnit.y * sourceRadius,
+        };
+        const end = {
+          x: target.x - endUnit.x * (targetRadius + 4),
+          y: target.y - endUnit.y * (targetRadius + 4),
+        };
+
+        context.strokeStyle = attributes.color;
+        context.fillStyle = attributes.color;
+        context.lineWidth =
+          attributes.size + (edgeId === selectedEdgeId ? 2 : 0);
+        context.setLineDash(attributes.dash);
+        context.beginPath();
+        context.moveTo(start.x, start.y);
+        context.quadraticCurveTo(control.x, control.y, end.x, end.y);
+        context.stroke();
+        context.setLineDash([]);
+
+        const normalX = -endUnit.y;
+        const normalY = endUnit.x;
+        const arrowSize = 5 + attributes.size;
+        const tip = {
+          x: target.x - endUnit.x * targetRadius,
+          y: target.y - endUnit.y * targetRadius,
+        };
+        const base = {
+          x: tip.x - endUnit.x * arrowSize,
+          y: tip.y - endUnit.y * arrowSize,
+        };
+        context.beginPath();
+        context.moveTo(tip.x, tip.y);
+        context.lineTo(
+          base.x + normalX * arrowSize * 0.65,
+          base.y + normalY * arrowSize * 0.65,
+        );
+        context.lineTo(
+          base.x - normalX * arrowSize * 0.65,
+          base.y - normalY * arrowSize * 0.65,
+        );
+        context.closePath();
+        context.fill();
+      });
+
       graph.forEachNode((nodeId, attributes) => {
         const display = renderer.getNodeDisplayData(nodeId);
         if (!display || display.hidden) return;
@@ -149,6 +233,10 @@ export function WakeLayer({
       }
       const source = renderer.framedGraphToViewport(sourceData);
       const target = renderer.framedGraphToViewport(targetData);
+      const lane = graph.hasEdge(pulse.edgeId)
+        ? graph.getEdgeAttribute(pulse.edgeId, "lane")
+        : 0;
+      const control = quadraticControlPoint(source, target, lane);
       const duration = pulse.reduced ? 180 : 700;
       const progress = Math.min(1, (time - pulse.startedAt) / duration);
       context.strokeStyle = pulse.color;
@@ -163,15 +251,23 @@ export function WakeLayer({
           context.stroke();
         }
       } else {
-        const x = source.x + (target.x - source.x) * progress;
-        const y = source.y + (target.y - source.y) * progress;
+        const point = quadraticPoint(source, control, target, progress);
+        const partialControl = {
+          x: source.x + (control.x - source.x) * progress,
+          y: source.y + (control.y - source.y) * progress,
+        };
         context.globalAlpha = 0.9 * (1 - progress * 0.35);
         context.beginPath();
         context.moveTo(source.x, source.y);
-        context.lineTo(x, y);
+        context.quadraticCurveTo(
+          partialControl.x,
+          partialControl.y,
+          point.x,
+          point.y,
+        );
         context.stroke();
         context.beginPath();
-        context.arc(x, y, 4.5, 0, Math.PI * 2);
+        context.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
         context.fill();
       }
       context.globalAlpha = 1;
@@ -184,7 +280,7 @@ export function WakeLayer({
         pulseRef.current = null;
       }
     },
-    [renderer, selectedNodeId],
+    [renderer, selectedEdgeId, selectedNodeId],
   );
 
   useEffect(() => {
@@ -211,8 +307,9 @@ export function WakeLayer({
     const mediaReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     pulseRef.current = {
       eventId: activeEvent.id,
-      source: endpoints[0],
-      target: endpoints[1],
+      edgeId: endpoints.edgeId,
+      source: endpoints.source,
+      target: endpoints.target,
       startedAt: performance.now(),
       color: wakeColor(activeEvent.type),
       reduced: reducedMotion ?? Boolean(mediaReduced),
