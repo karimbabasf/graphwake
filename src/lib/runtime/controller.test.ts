@@ -47,9 +47,7 @@ describe("RunController", () => {
     });
     let nodeEvents = 0;
     let nextId = 0;
-    let controller: ReturnType<typeof createRunController>;
-
-    controller = createRunController({
+    const controller = createRunController({
       repository,
       now: () => NOW,
       createId: () => `runtime-${(nextId += 1)}`,
@@ -71,5 +69,28 @@ describe("RunController", () => {
     expect(committedNodes).toHaveLength(2);
     expect(controller.status).toBe("stopped");
     expect(loaded?.project.status).toBe("stopped");
+  });
+
+  it("releases the active lock when the start event cannot be stored", async () => {
+    const project = await repository.createProject({
+      name: "Start failure",
+      purpose: "Verify the runner lock is released after a storage failure.",
+      seedPrompt: "Attempt to start once.",
+      engine: "local",
+    });
+    const controller = createRunController({
+      repository: {
+        loadProject: (projectId) => repository.loadProject(projectId),
+        appendProjectEvent: async () => {
+          throw new Error("Storage unavailable");
+        },
+      },
+      now: () => NOW,
+    });
+
+    await expect(controller.start(project.id)).rejects.toThrow(
+      "Storage unavailable",
+    );
+    expect(controller.isActive).toBe(false);
   });
 });
