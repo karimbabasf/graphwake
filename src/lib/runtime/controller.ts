@@ -117,7 +117,14 @@ export function createRunController(dependencies: RunControllerDependencies) {
     active = true;
     controller = new AbortController();
     currentStatus = "running";
-    await appendLifecycle(projectId, "run.started", "Start the graph run.");
+    try {
+      await appendLifecycle(projectId, "run.started", "Start the graph run.");
+    } catch (error) {
+      active = false;
+      controller = null;
+      currentStatus = "failed";
+      throw error;
+    }
 
     const refs = new Map<string, string>();
     const knownNodeIds = new Set(loaded.snapshot.nodes.map((node) => node.id));
